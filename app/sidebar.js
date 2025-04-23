@@ -15,6 +15,14 @@ export default function Sidebar() {
             </Link>
           </li>
           <li>
+  <Link
+    href="/search"
+    className="block px-4 py-2 rounded-lg hover:bg-blue-500 transition duration-200 hover:scale-105"
+  >
+    Search
+  </Link>
+</li>
+          <li>
             <Link
               href="/settings"
               className="block px-4 py-2 rounded-lg hover:bg-blue-500 transition duration-200 hover:scale-105"
