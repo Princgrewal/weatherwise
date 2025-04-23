@@ -118,17 +118,25 @@ export default function HomePage() {
                 className="w-16 h-16"
               />
             </div>
-            <div className="mt-4 grid grid-cols-2 gap-3 text-sm">
-              <div className={`${cardBg} p-3 rounded-lg`}>
+            <div className="mt-4 grid grid-cols-2 gap-4 text-sm">
+              <div
+                className={`p-4 rounded-lg ${cardBg} shadow-md flex justify-center items-center`}
+              >
                 Feels like: {getTemp(weather.current.feelslike_c, weather.current.feelslike_f)}
               </div>
-              <div className={`${cardBg} p-3 rounded-lg`}>
+              <div
+                className={`p-4 rounded-lg ${cardBg} shadow-md flex justify-center items-center`}
+              >
                 Humidity: {weather.current.humidity}%
               </div>
-              <div className={`${cardBg} p-3 rounded-lg`}>
+              <div
+                className={`p-4 rounded-lg ${cardBg} shadow-md flex justify-center items-center`}
+              >
                 Wind: {weather.current.wind_kph} kph
               </div>
-              <div className={`${cardBg} p-3 rounded-lg`}>
+              <div
+                className={`p-4 rounded-lg ${cardBg} shadow-md flex justify-center items-center`}
+              >
                 Visibility: {weather.current.vis_km} km
               </div>
             </div>
