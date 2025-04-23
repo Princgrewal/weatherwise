@@ -1,103 +1,176 @@
-import Image from "next/image";
+"use client";
+import { useEffect, useState } from "react";
+import maplibregl from "maplibre-gl";
+import "maplibre-gl/dist/maplibre-gl.css";
 
-export default function Home() {
+async function fetchDataByCoords(lat, lon) {
+  const res = await fetch(
+    `https://api.weatherapi.com/v1/forecast.json?key=61510d21795941a0b8813836250804&q=${lat},${lon}&days=3&aqi=no&alerts=no`
+  );
+  if (!res.ok) throw new Error("Failed to fetch data");
+  return res.json();
+}
+
+export default function HomePage() {
+  const [weather, setWeather] = useState(null);
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [unit, setUnit] = useState("C");
+  const [theme, setTheme] = useState("light");
+
+  const getWeather = async (lat, lon) => {
+    try {
+      const data = await fetchDataByCoords(lat, lon);
+      setWeather(data);
+    } catch (err) {
+      console.error(err);
+      setError("Could not fetch weather data");
+    }
+  };
+
+  useEffect(() => {
+    const savedUnit = localStorage.getItem("temperatureUnit") || "C";
+    const savedTheme = localStorage.getItem("theme") || "light";
+    setUnit(savedUnit);
+    setTheme(savedTheme);
+
+    const getWeatherByLocation = async () => {
+      try {
+        if (!navigator.geolocation) {
+          setError("Geolocation not supported");
+          return;
+        }
+
+        navigator.geolocation.getCurrentPosition(
+          async (pos) => {
+            const lat = pos.coords.latitude;
+            const lon = pos.coords.longitude;
+            await getWeather(lat, lon);
+
+            setTimeout(() => {
+              const container = document.getElementById("map-container");
+              if (container && !container.dataset.mapInitialized) {
+                const map = new maplibregl.Map({
+                  container: container,
+                  style: `https://api.maptiler.com/maps/streets/style.json?key=WaHu6lAbayxstbrJXKGf`,
+                  center: [lon, lat],
+                  zoom: 10,
+                });
+
+                new maplibregl.Marker().setLngLat([lon, lat]).addTo(map);
+
+                map.on("click", async (e) => {
+                  const clickedLat = e.lngLat.lat;
+                  const clickedLon = e.lngLat.lng;
+                  await getWeather(clickedLat, clickedLon);
+                });
+
+                container.dataset.mapInitialized = "true";
+              }
+            }, 100);
+          },
+          () => {
+            setError("Location access denied");
+            setLoading(false);
+          }
+        );
+      } catch (err) {
+        console.error(err);
+        setError("Could not fetch weather data");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    getWeatherByLocation();
+  }, []);
+
+  const getTemp = (celsius, fahrenheit) =>
+    unit === "C" ? `${celsius}°C` : `${fahrenheit}°F`;
+
+  const isDark = theme === "dark";
+  const themeClasses = isDark ? "bg-gray-950 text-white" : "bg-gray-100 text-gray-900";
+  const cardBg = isDark ? "bg-gray-900" : "bg-white";
+
   return (
-    <div className="grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20 font-[family-name:var(--font-geist-sans)]">
-      <main className="flex flex-col gap-[32px] row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="list-inside list-decimal text-sm/6 text-center sm:text-left font-[family-name:var(--font-geist-mono)]">
-          <li className="mb-2 tracking-[-.01em]">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] px-1 py-0.5 rounded font-[family-name:var(--font-geist-mono)] font-semibold">
-              app/page.js
-            </code>
-            .
-          </li>
-          <li className="tracking-[-.01em]">
-            Save and see your changes instantly.
-          </li>
-        </ol>
+    <div className={`min-h-screen p-6 ${themeClasses}`}>
+      <h1 className="text-3xl font-extrabold mb-6">Current Location Weather</h1>
 
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:w-auto"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
+      {loading && <p className="text-gray-400">Loading...</p>}
+      {error && <p className="text-red-500">{error}</p>}
+
+      {weather && (
+        <div className="flex flex-col lg:flex-row gap-6 mb-10">
+          <div className={`rounded-xl p-6 w-full lg:w-1/2 ${cardBg}`}>
+            <h2 className="text-2xl font-semibold mb-2">
+              {weather.location.name}, {weather.location.country}
+            </h2>
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-4xl font-bold">
+                  {getTemp(weather.current.temp_c, weather.current.temp_f)}
+                </p>
+                <p className="text-gray-300">{weather.current.condition.text}</p>
+              </div>
+              <img
+                src={`https:${weather.current.condition.icon}`}
+                alt={weather.current.condition.text}
+                className="w-16 h-16"
+              />
+            </div>
+            <div className="mt-4 grid grid-cols-2 gap-3 text-sm">
+              <div className={`${cardBg} p-3 rounded-lg`}>
+                Feels like: {getTemp(weather.current.feelslike_c, weather.current.feelslike_f)}
+              </div>
+              <div className={`${cardBg} p-3 rounded-lg`}>
+                Humidity: {weather.current.humidity}%
+              </div>
+              <div className={`${cardBg} p-3 rounded-lg`}>
+                Wind: {weather.current.wind_kph} kph
+              </div>
+              <div className={`${cardBg} p-3 rounded-lg`}>
+                Visibility: {weather.current.vis_km} km
+              </div>
+            </div>
+          </div>
+
+          <div className={`w-full lg:w-1/2 ${cardBg} rounded-xl p-2`}>
+            <div
+              id="map-container"
+              style={{ width: "100%", height: "100%", minHeight: "300px", borderRadius: "0.75rem" }}
+              className="shadow-md"
             />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 w-full sm:w-auto md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
+          </div>
         </div>
-      </main>
-      <footer className="row-start-3 flex gap-[24px] flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
+      )}
+
+      {weather && (
+        <div>
+          <h2 className="text-2xl font-bold mb-4">3-Day Forecast</h2>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            {weather.forecast.forecastday.map((day, index) => (
+              <div
+                key={index}
+                className={`p-4 rounded-xl shadow-md ${cardBg} transition hover:scale-105`}
+              >
+                <h3 className="font-semibold text-lg mb-2">{day.date}</h3>
+                <img
+                  src={`https:${day.day.condition.icon}`}
+                  alt={day.day.condition.text}
+                  className="w-12 h-12 mb-2"
+                />
+                <p className="text-sm mb-1">{day.day.condition.text}</p>
+                <p className="text-sm">
+                  Avg: {getTemp(day.day.avgtemp_c, day.day.avgtemp_f)}
+                </p>
+                <p className="text-sm text-gray-400">
+                  Max: {getTemp(day.day.maxtemp_c, day.day.maxtemp_f)} / Min: {getTemp(day.day.mintemp_c, day.day.mintemp_f)}
+                </p>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
